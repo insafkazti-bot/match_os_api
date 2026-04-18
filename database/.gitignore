@@ -1,1 +1,50 @@
-*.sqlite*
+# Dépendances PHP installées par Composer
+# Trop lourd à envoyer sur GitHub (des milliers de fichiers)
+/vendor
+
+# Dépendances JavaScript installées par npm
+# Trop lourd à envoyer sur GitHub
+/node_modules
+
+# Fichier de configuration secret
+# Contient mot de passe base de données, clés API...
+# NE JAMAIS envoyer sur GitHub !
+.env
+.env.backup
+.env.production
+
+# Fichiers de build Angular/Vite
+/public/build
+/public/hot
+
+# Fichier de lien symbolique storage
+/public/storage
+
+# Clés de storage
+/storage/*.key
+
+# Fichiers de log
+/storage/logs/*.log
+
+# Cache de Laravel
+/bootstrap/cache/*.php
+
+# Fichiers système Mac
+.DS_Store
+
+# Fichiers système Windows
+Thumbs.db
+
+# Fichiers de configuration IDE
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Fichiers de test
+/coverage
+/.phpunit.result.cache
+/phpunit.xmlgit add .
