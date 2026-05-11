@@ -1,45 +1,22 @@
 <?php
 
-// Définit l'espace de noms du fichier
 namespace App\Models;
 
-// Importe la classe Model de Laravel (classe parent)
 use Illuminate\Database\Eloquent\Model;
-
-// Importe les models nécessaires pour les relations
-use App\Models\GameMatch;
-use App\Models\MatchTask;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Task extends Model
 {
-    // Liste des colonnes qu'on peut remplir via le code
-    protected $fillable = [
-        'title',        // Titre de la tâche
-        'description',  // Description détaillée
-        'status',       // a_faire / en_cours / termine
-    ];
+    protected $fillable = ['title', 'description', 'status'];
 
-    /**
-     * Relation 1-N avec MatchTask
-     * Une tâche peut avoir PLUSIEURS match_tasks
-     * Exemple : La tâche "Arbitrage" est dans 5 match_tasks
-     */
-    public function matchTasks()
+    public function matchTasks(): HasMany
     {
-        // hasMany = "j'ai plusieurs"
-        return $this->hasMany(MatchTask::class);
+        return $this->hasMany(MatchTask::class, 'id_task');
     }
 
-    /**
-     * Relation N-N avec GameMatch via match_tasks
-     * Une tâche peut appartenir à PLUSIEURS matchs
-     * Un match peut avoir PLUSIEURS tâches
-     * Exemple : "Préparer terrain" existe dans Raja vs WAC ET FAR vs MAS
-     */
-    public function matches()
+    public function matches(): BelongsToMany
     {
-        // belongsToMany = relation N-N
-        // 'match_tasks' = table intermédiaire
-        return $this->belongsToMany(GameMatch::class, 'match_tasks');
+        return $this->belongsToMany(Matches::class, 'match_tasks', 'id_task', 'id_match');
     }
 }

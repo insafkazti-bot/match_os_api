@@ -1,66 +1,100 @@
 <?php
+
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreAdminRequest;
+use App\Http\Requests\UpdateAdminRequest;
+use App\Http\Resources\AdminResource;
 use App\Models\Admin;
-use Illuminate\Http\Request;
+use Throwable;
 
 class AdminController extends Controller
 {
-    /**
-     * Retourne la liste de tous les admins
-     * GET /api/admins
-     */
-    public function index()
+    private function requireAdmin()
     {
-        return response()->json(Admin::all());
+        $user = request()->user();
+        if (! $user || ! ($user instanceof Admin)) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        return null;
     }
 
-    /**
-     * Crée un nouvel admin
-     * POST /api/admins
-     */
-    public function store(Request $request)
+    public function fanzone_index()
     {
-        $admin = Admin::create([
-            'first_name'      => $request->first_name,
-            'last_name'       => $request->last_name,
-            'email'           => $request->email,
-            'password'        => bcrypt($request->password),
-            'profile_picture' => $request->profile_picture,
-        ]);
-        return response()->json($admin, 201);
+        if ($resp = $this->requireAdmin()) {
+            return $resp;
+        }
+
+        $perPage = (int) request()->query('per_page', 15);
+        $perPage = max(1, min($perPage, 100));
+
+        return AdminResource::collection(Admin::orderByDesc('id')->paginate($perPage));
     }
 
-    /**
-     * Retourne un admin spécifique
-     * GET /api/admins/{id}
-     */
-    public function show($id)
+    public function fanzone_create(StoreAdminRequest $request)
     {
-        $admin = Admin::findOrFail($id);
-        return response()->json($admin);
+        if ($resp = $this->requireAdmin()) {
+            return $resp;
+        }
+
+        try {
+            $validated = $request->validated();
+            $admin = Admin::create([
+                'first_name' => $validated['first_name'],
+                'last_name' => $validated['last_name'],
+                'email' => $validated['email'],
+                'password' => bcrypt($validated['password']),
+                'avatar_url' => $validated['avatar_url'] ?? null,
+            ]);
+
+            return (new AdminResource($admin))->response()->setStatusCode(201);
+        } catch (Throwable $e) {
+            return response()->json(['message' => 'Failed to create admin'], 500);
+        }
     }
 
-    /**
-     * Met à jour un admin existant
-     * PUT /api/admins/{id}
-     */
-    public function update(Request $request, $id)
+    public function fanzone_show(int $id)
     {
-        $admin = Admin::findOrFail($id);
-        $admin->update($request->all());
-        return response()->json($admin);
+        if ($resp = $this->requireAdmin()) {
+            return $resp;
+        }
+
+        return new AdminResource(Admin::findOrFail($id));
     }
 
-    /**
-     * Supprime un admin
-     * DELETE /api/admins/{id}
-     */
-    public function destroy($id)
+    public function fanzone_edit(UpdateAdminRequest $request, int $id)
     {
+        if ($resp = $this->requireAdmin()) {
+            return $resp;
+        }
+
+        try {
+            $admin = Admin::findOrFail($id);
+            $validated = $request->validated();
+
+            if (array_key_exists('password', $validated) && $validated['password']) {
+                $validated['password'] = bcrypt($validated['password']);
+            } else {
+                unset($validated['password']);
+            }
+
+            $admin->update($validated);
+
+            return new AdminResource($admin->fresh());
+        } catch (Throwable $e) {
+            return response()->json(['message' => 'Failed to update admin'], 500);
+        }
+    }
+
+    public function fanzone_delete(int $id)
+    {
+        if ($resp = $this->requireAdmin()) {
+            return $resp;
+        }
+
         Admin::findOrFail($id)->delete();
-        return response()->json([
-            'message' => 'Admin supprimé avec succès'
-        ]);
+
+        return response()->json(['message' => 'Admin supprimé avec succès']);
     }
 }

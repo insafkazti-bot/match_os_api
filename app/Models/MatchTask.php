@@ -1,61 +1,26 @@
 <?php
 
-// Définit l'espace de noms du fichier
 namespace App\Models;
 
-// Importe la classe Model de Laravel (classe parent)
 use Illuminate\Database\Eloquent\Model;
-
-// Importe les models nécessaires pour les relations
-use App\Models\GameMatch;
-use App\Models\Task;
-use App\Models\Member;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class MatchTask extends Model
 {
-    // Liste des colonnes qu'on peut remplir via le code
-    protected $fillable = [
-        'match_id',     // ID du match concerné (clé étrangère)
-        'task_id',      // ID de la tâche concernée (clé étrangère)
-        'member_id',    // ID du membre assigné (clé étrangère)
-        'status',       // a_faire / en_cours / termine
-        'notes',        // Notes supplémentaires
-        'deadline',     // Date limite pour la tâche
-    ];
+    protected $fillable = ['id_match', 'id_task', 'id_member', 'status', 'notes', 'deadline'];
 
-    /**
-     * Relation N-1 avec GameMatch
-     * Une match_task appartient à UN SEUL match
-     * Exemple : Cette tâche appartient au match Raja vs WAC
-     */
-    public function gameMatch()
+    public function matches(): BelongsTo
     {
-        // belongsTo = "j'appartiens à"
-        // Utilise match_id pour trouver le match
-        return $this->belongsTo(GameMatch::class);
+        return $this->belongsTo(Matches::class, 'id_match');
     }
 
-    /**
-     * Relation N-1 avec Task
-     * Une match_task appartient à UNE SEULE tâche
-     * Exemple : Cette match_task est la tâche "Arbitrage"
-     */
-    public function task()
+    public function task(): BelongsTo
     {
-        // belongsTo = "j'appartiens à"
-        // Utilise task_id pour trouver la tâche
-        return $this->belongsTo(Task::class);
+        return $this->belongsTo(Task::class, 'id_task');
     }
 
-    /**
-     * Relation N-1 avec Member
-     * Une match_task appartient à UN SEUL membre
-     * Exemple : Cette tâche est assignée à Ahmed
-     */
-    public function member()
+    public function member(): BelongsTo
     {
-        // belongsTo = "j'appartiens à"
-        // Utilise member_id pour trouver le membre
-        return $this->belongsTo(Member::class);
+        return $this->belongsTo(Member::class, 'id_member');
     }
 }

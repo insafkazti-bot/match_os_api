@@ -6,9 +6,6 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('matches', function (Blueprint $table) {
@@ -18,16 +15,13 @@ return new class extends Migration
             $table->dateTime('match_date');
             $table->string('team_a_name');
             $table->string('team_b_name');
-            $table->integer('score_a')->default(0);
-            $table->integer('score_b')->default(0);
-            $table->enum('status', ['planifie', 'en_cours', 'termine'])->default('planifie');
+            $table->integer('score_a')->nullable();
+            $table->integer('score_b')->nullable();
+            $table->enum('status', ['planifie', 'en_cours', 'termine'])->nullable();
             $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('matches');

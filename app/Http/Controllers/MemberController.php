@@ -1,68 +1,103 @@
 <?php
+
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreMemberRequest;
+use App\Http\Requests\UpdateMemberRequest;
+use App\Http\Resources\MemberResource;
+use App\Models\Admin;
 use App\Models\Member;
-use Illuminate\Http\Request;
+use Throwable;
 
 class MemberController extends Controller
 {
-    /**
-     * Retourne la liste de tous les membres
-     * GET /api/members
-     */
-    public function index()
+    private function requireAdmin()
     {
-        return response()->json(Member::all());
+        $user = request()->user();
+        if (! $user || ! ($user instanceof Admin)) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        return null;
     }
 
-    /**
-     * Crée un nouveau membre
-     * POST /api/members
-     */
-    public function store(Request $request)
+    public function fanzone_index()
     {
-        $member = Member::create([
-            'first_name'      => $request->first_name,
-            'last_name'       => $request->last_name,
-            'email'           => $request->email,
-            'password'        => bcrypt($request->password),
-            'phone'           => $request->phone,
-            'profile_picture' => $request->profile_picture,
-            'position'        => $request->position,
-        ]);
-        return response()->json($member, 201);
+        if ($resp = $this->requireAdmin()) {
+            return $resp;
+        }
+
+        $perPage = (int) request()->query('per_page', 15);
+        $perPage = max(1, min($perPage, 100));
+
+        return MemberResource::collection(Member::orderByDesc('id')->paginate($perPage));
     }
 
-    /**
-     * Retourne un membre spécifique
-     * GET /api/members/{id}
-     */
-    public function show($id)
+    public function fanzone_create(StoreMemberRequest $request)
     {
-        $member = Member::findOrFail($id);
-        return response()->json($member);
+        if ($resp = $this->requireAdmin()) {
+            return $resp;
+        }
+
+        try {
+            $validated = $request->validated();
+            $member = Member::create([
+                'first_name' => $validated['first_name'],
+                'last_name' => $validated['last_name'],
+                'email' => $validated['email'],
+                'password' => bcrypt($validated['password']),
+                'phone' => $validated['phone'] ?? null,
+                'avatar_url' => $validated['avatar_url'] ?? null,
+                'position' => $validated['position'] ?? null,
+            ]);
+
+            return (new MemberResource($member))->response()->setStatusCode(201);
+        } catch (Throwable $e) {
+            return response()->json(['message' => 'Failed to create member'], 500);
+        }
     }
 
-    /**
-     * Met à jour un membre existant
-     * PUT /api/members/{id}
-     */
-    public function update(Request $request, $id)
+    public function fanzone_show(int $id)
     {
-        $member = Member::findOrFail($id);
-        $member->update($request->all());
-        return response()->json($member);
+        if ($resp = $this->requireAdmin()) {
+            return $resp;
+        }
+
+        return new MemberResource(Member::findOrFail($id));
     }
 
-    /**
-     * Supprime un membre
-     * DELETE /api/members/{id}
-     */
-    public function destroy($id)
+    public function fanzone_edit(UpdateMemberRequest $request, int $id)
     {
+        if ($resp = $this->requireAdmin()) {
+            return $resp;
+        }
+
+        try {
+            $member = Member::findOrFail($id);
+            $validated = $request->validated();
+
+            if (array_key_exists('password', $validated) && $validated['password']) {
+                $validated['password'] = bcrypt($validated['password']);
+            } else {
+                unset($validated['password']);
+            }
+
+            $member->update($validated);
+
+            return new MemberResource($member->fresh());
+        } catch (Throwable $e) {
+            return response()->json(['message' => 'Failed to update member'], 500);
+        }
+    }
+
+    public function fanzone_delete(int $id)
+    {
+        if ($resp = $this->requireAdmin()) {
+            return $resp;
+        }
+
         Member::findOrFail($id)->delete();
-        return response()->json([
-            'message' => 'Membre supprimé avec succès'
-        ]);
+
+        return response()->json(['message' => 'Membre supprimé avec succès']);
     }
 }

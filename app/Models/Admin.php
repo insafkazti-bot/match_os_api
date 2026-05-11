@@ -1,29 +1,15 @@
 <?php
 
-// Définit l'espace de noms du fichier
 namespace App\Models;
 
-// Importe la classe Model de Laravel (classe parent)
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Laravel\Sanctum\HasApiTokens;
 
-class Admin extends Model
+class Admin extends Authenticatable
 {
-    // Liste des colonnes qu'on peut remplir via le code
-    // Protège contre les attaques "mass assignment"
-    protected $fillable = [
-        'first_name',       // Prénom de l'admin
-        'last_name',        // Nom de l'admin
-        'email',            // Email unique de l'admin
-        'password',         // Mot de passe (hashé)
-        'profile_picture',  // Photo de profil
-    ];
+    use HasApiTokens;
 
-    // Colonnes cachées dans les réponses JSON
-    // Le mot de passe ne sera jamais affiché
-    protected $hidden = [
-        'password',
-    ];
+    protected $fillable = ['first_name', 'last_name', 'email', 'password', 'avatar_url'];
 
-    // Admin n'a pas de relations avec les autres tables
-    // Il gère juste l'application
+    protected $hidden = ['password'];
 }

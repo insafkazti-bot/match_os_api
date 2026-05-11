@@ -47,4 +47,4 @@ Thumbs.db
 # Fichiers de test
 /coverage
 /.phpunit.result.cache
-/phpunit.xmlgit add .
+/phpunit.xml

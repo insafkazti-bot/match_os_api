@@ -1,72 +1,123 @@
 <?php
+
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreMatchTaskRequest;
+use App\Http\Requests\UpdateMatchTaskRequest;
+use App\Http\Resources\MatchTaskResource;
+use App\Models\Admin;
+use App\Models\Member;
 use App\Models\MatchTask;
-use Illuminate\Http\Request;
+use Throwable;
 
 class MatchTaskController extends Controller
 {
-    /**
-     * Retourne la liste de toutes les match_tasks
-     * avec les relations (match, task, member)
-     * GET /api/match-tasks
-     */
-    public function index()
+    private function requireMemberOrAdmin()
     {
-        return response()->json(
-            MatchTask::with(['gameMatch', 'task', 'member'])->get()
+        $user = request()->user();
+        if (! $user || ! ($user instanceof Member) && ! ($user instanceof Admin)) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        return null;
+    }
+
+    public function fanzone_index()
+    {
+        if ($resp = $this->requireMemberOrAdmin()) {
+            return $resp;
+        }
+
+        $perPage = (int) request()->query('per_page', 15);
+        $perPage = max(1, min($perPage, 100));
+
+        $query = MatchTask::with(['matches', 'task', 'member'])->orderByDesc('id');
+
+        if (request()->has('id_match')) {
+            $query->where('id_match', request()->input('id_match'));
+        }
+
+        return MatchTaskResource::collection(
+            $query->paginate($perPage)
         );
     }
 
-    /**
-     * Crée une nouvelle match_task
-     * POST /api/match-tasks
-     */
-    public function store(Request $request)
+    public function fanzone_create(StoreMatchTaskRequest $request)
     {
-        $matchTask = MatchTask::create([
-            'match_id'  => $request->match_id,
-            'task_id'   => $request->task_id,
-            'member_id' => $request->member_id,
-            'status'    => $request->status ?? 'a_faire',
-            'notes'     => $request->notes,
-            'deadline'  => $request->deadline,
-        ]);
-        return response()->json($matchTask, 201);
+        if ($resp = $this->requireMemberOrAdmin()) {
+            return $resp;
+        }
+
+        try {
+            $validated = $request->validated();
+            $user = $request->user();
+
+            $matchTask = MatchTask::create([
+                'id_match' => $validated['id_match'],
+                'id_task' => $validated['id_task'],
+                'id_member' => $user instanceof Member ? $user->id : (int) request()->input('id_member'),
+                'status' => $validated['status'] ?? null,
+                'notes' => $validated['notes'] ?? null,
+                'deadline' => $validated['deadline'] ?? null,
+            ]);
+
+            return (new MatchTaskResource($matchTask->load(['matches', 'task', 'member'])))
+                ->response()
+                ->setStatusCode(201);
+        } catch (Throwable $e) {
+            return response()->json(['message' => 'Failed to create match task'], 500);
+        }
     }
 
-    /**
-     * Retourne une match_task spécifique
-     * avec ses relations
-     * GET /api/match-tasks/{id}
-     */
-    public function show($id)
+    public function fanzone_show(int $id)
     {
-        $matchTask = MatchTask::with(['gameMatch', 'task', 'member'])
-                              ->findOrFail($id);
-        return response()->json($matchTask);
+        if ($resp = $this->requireMemberOrAdmin()) {
+            return $resp;
+        }
+
+        return new MatchTaskResource(MatchTask::with(['matches', 'task', 'member'])->findOrFail($id));
     }
 
-    /**
-     * Met à jour une match_task existante
-     * PUT /api/match-tasks/{id}
-     */
-    public function update(Request $request, $id)
+    public function fanzone_edit(UpdateMatchTaskRequest $request, int $id)
     {
+        if ($resp = $this->requireMemberOrAdmin()) {
+            return $resp;
+        }
+
+        $user = $request->user();
         $matchTask = MatchTask::findOrFail($id);
-        $matchTask->update($request->all());
-        return response()->json($matchTask);
+        if ($user instanceof Member && (int) $matchTask->id_member !== (int) $user->id) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        try {
+            $validated = $request->validated();
+            if ($user instanceof Member) {
+                unset($validated['id_member']);
+            }
+
+            $matchTask->update($validated);
+
+            return new MatchTaskResource($matchTask->fresh()->load(['matches', 'task', 'member']));
+        } catch (Throwable $e) {
+            return response()->json(['message' => 'Failed to update match task'], 500);
+        }
     }
 
-    /**
-     * Supprime une match_task
-     * DELETE /api/match-tasks/{id}
-     */
-    public function destroy($id)
+    public function fanzone_delete(int $id)
     {
-        MatchTask::findOrFail($id)->delete();
-        return response()->json([
-            'message' => 'Match Task supprimée avec succès'
-        ]);
+        if ($resp = $this->requireMemberOrAdmin()) {
+            return $resp;
+        }
+
+        $user = request()->user();
+        $matchTask = MatchTask::findOrFail($id);
+        if ($user instanceof Member && (int) $matchTask->id_member !== (int) $user->id) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $matchTask->delete();
+
+        return response()->json(['message' => 'Match Task supprimée avec succès']);
     }
 }

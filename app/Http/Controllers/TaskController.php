@@ -1,64 +1,97 @@
 <?php
+
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreTaskRequest;
+use App\Http\Requests\UpdateTaskRequest;
+use App\Http\Resources\TaskResource;
+use App\Models\Admin;
 use App\Models\Task;
-use Illuminate\Http\Request;
+use Throwable;
 
 class TaskController extends Controller
 {
-    /**
-     * Retourne la liste de toutes les tâches
-     * GET /api/tasks
-     */
-    public function index()
+    private function requireAdmin()
     {
-        return response()->json(Task::all());
+        $user = request()->user();
+        if (! $user || ! ($user instanceof Admin)) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        return null;
     }
 
-    /**
-     * Crée une nouvelle tâche
-     * POST /api/tasks
-     */
-    public function store(Request $request)
+    public function fanzone_index()
     {
-        $task = Task::create([
-            'title'       => $request->title,
-            'description' => $request->description,
-            'status'      => $request->status ?? 'a_faire',
-        ]);
-        return response()->json($task, 201);
+        if ($resp = $this->requireAdmin()) {
+            return $resp;
+        }
+
+        $perPage = (int) request()->query('per_page', 15);
+        $perPage = max(1, min($perPage, 100));
+
+        return TaskResource::collection(Task::orderByDesc('id')->paginate($perPage));
     }
 
-    /**
-     * Retourne une tâche spécifique
-     * GET /api/tasks/{id}
-     */
-    public function show($id)
+    public function fanzone_create(StoreTaskRequest $request)
     {
-        $task = Task::findOrFail($id);
-        return response()->json($task);
+        if ($resp = $this->requireAdmin()) {
+            return $resp;
+        }
+
+        try {
+            $validated = $request->validated();
+
+            $task = Task::create([
+                'title' => $validated['title'],
+                'description' => $validated['description'] ?? null,
+                'status' => $validated['status'] ?? 'a_faire',
+            ]);
+
+            return (new TaskResource($task))->response()->setStatusCode(201);
+        } catch (Throwable $e) {
+            return response()->json(['message' => 'Failed to create task'], 500);
+        }
     }
 
-    /**
-     * Met à jour une tâche existante
-     * PUT /api/tasks/{id}
-     */
-    public function update(Request $request, $id)
+    public function fanzone_show(int $id)
     {
-        $task = Task::findOrFail($id);
-        $task->update($request->all());
-        return response()->json($task);
+        if ($resp = $this->requireAdmin()) {
+            return $resp;
+        }
+
+        return new TaskResource(Task::findOrFail($id));
     }
 
-    /**
-     * Supprime une tâche
-     * DELETE /api/tasks/{id}
-     */
-    public function destroy($id)
+    public function fanzone_edit(UpdateTaskRequest $request, int $id)
     {
+        if ($resp = $this->requireAdmin()) {
+            return $resp;
+        }
+
+        try {
+            $validated = $request->validated();
+            $task = Task::findOrFail($id);
+            $task->update([
+                'title' => array_key_exists('title', $validated) ? $validated['title'] : $task->title,
+                'description' => $validated['description'] ?? null,
+                'status' => $validated['status'] ?? $task->status,
+            ]);
+
+            return new TaskResource($task->fresh());
+        } catch (Throwable $e) {
+            return response()->json(['message' => 'Failed to update task'], 500);
+        }
+    }
+
+    public function fanzone_delete(int $id)
+    {
+        if ($resp = $this->requireAdmin()) {
+            return $resp;
+        }
+
         Task::findOrFail($id)->delete();
-        return response()->json([
-            'message' => 'Tâche supprimée avec succès'
-        ]);
+
+        return response()->json(['message' => 'Tâche supprimée avec succès']);
     }
 }
